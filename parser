@@ -1,0 +1,87 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+def get_html(url):
+  headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
+  }
+  try:
+    response = requests.get(url, headers=headers, timeout=30)
+    if response.status_code == 200:
+      return response.text
+    else:
+      print(f"Failed to retrieve page with status code: {response.status_code}")
+      return None
+  except requests.exceptions.Timeout:
+    print("The request timed out")
+    return None
+  except requests.exceptions.RequestException as e:
+    print(f"An error occurred: {e}")
+    return None
+
+def parse_providers(html):
+  soup = BeautifulSoup(html, 'html.parser')
+  providers = []
+  provider_elements = soup.select('.providerCard')
+  print(f"Found {len(provider_elements)} provider elements")
+  for provider in provider_elements:
+    name_elem = provider.select_one('.providerTitle')
+    name = name_elem.text.strip() if name_elem else 'N/A'
+
+    link_elem = provider.select_one('.providerTitle a')
+    link = link_elem['href'] if link_elem else 'N/A'
+
+    image_elem = provider.select_one('.providerImage img')
+    image_url = image_elem['data-src'] if image_elem else 'N/A'
+
+    casinos_elem = provider.select_one('.providerCasinos')
+    casinos = casinos_elem.text.strip() if casinos_elem else 'N/A'
+
+    countries_elem = provider.select_one('.providerCountries')
+    countries = countries_elem.text.strip() if countries_elem else 'N/A'
+
+    attributes = {
+      'Founded': provider.select_one('.providerFounded').text.strip() if provider.select_one('.providerFounded') else 'N/A',
+      'Website': provider.select_one('.providerWebsite a')['href'] if provider.select_one('.providerWebsite a') else 'N/A',
+      'Total Games': provider.select_one('.providerGames').text.strip() if provider.select_one('.providerGames') else 'N/A',
+      'Video Slots': provider.select_one('.providerVideoSlots').text.strip() if provider.select_one('.providerVideoSlots') else 'N/A',
+      'Classic Slots': provider.select_one('.providerClassicSlots').text.strip() if provider.select_one('.providerClassicSlots') else 'N/A',
+      'Card games': provider.select_one('.providerCardGames').text.strip() if provider.select_one('.providerCardGames') else 'N/A',
+      'Roulette Games': provider.select_one('.providerRouletteGames').text.strip() if provider.select_one('.providerRouletteGames') else 'N/A',
+      'Live Casino Games': provider.select_one('.providerLiveCasinoGames').text.strip() if provider.select_one('.providerLiveCasinoGames') else 'N/A',
+      'Scratch tickets': provider.select_one('.providerScratchTickets').text.strip() if provider.select_one('.providerScratchTickets') else 'N/A',
+      'Other types': provider.select_one('.providerOtherTypes').text.strip() if provider.select_one('.providerOtherTypes') else 'N/A'
+    }
+
+    providers.append({
+      'Назва провайдера': name,
+      'Посилання на провайдера': link,
+      'URL зображення провайдера': image_url,
+      'Кількість казино': casinos,
+      'Список країн': countries,
+      'Атрибути провайдера': attributes
+    })
+  return providers
+
+def save_to_csv(providers, filename):
+  df = pd.DataFrame(providers)
+  df.to_csv(filename, index=False, encoding='utf-8-sig', sep=';')
+
+def main():
+  url = "https://slotcatalog.com/en/Providers"
+  html = get_html(url)
+  if html:
+    print("HTML code successfully retrieved!")
+    providers = parse_providers(html)
+    if providers:
+      print("Providers data successfully parsed!")
+      save_to_csv(providers, 'providers.csv')
+      print("Data saved to providers.csv")
+    else:
+      print("Failed to parse providers data.")
+  else:
+    print("Failed to retrieve HTML code.")
+
+if __name__ == '__main__':
+  main()
